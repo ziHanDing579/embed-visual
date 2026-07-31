@@ -10,7 +10,7 @@ export const CONFIG = {
   // While true, embeddings are generated locally so the whole UI runs with no backend.
   // The mock is deterministic (same sentence -> same vector) and unit-length, so the
   // geometry behaves sensibly. Flip to false once EMBEDDING_ENDPOINT is live.
-  USE_MOCK: true,
+  USE_MOCK: false,
 
   // MiniLM (all-MiniLM-L6-v2) outputs 384 dimensions.
   EMBEDDING_DIM: 384,
