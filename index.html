@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Semantic Axes — a sentence plotting instrument</title>
+    <meta
+      name="description"
+      content="Plot sentences by their embedding geometry against a chosen semantic axis and its orthogonal complement."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- Top bar -->
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span class="brand-name">Semantic&nbsp;Axes</span>
+          <span class="brand-sub">sentence plotting instrument</span>
+        </div>
+        <dl class="readout" aria-label="Instrument status">
+          <div class="readout-item">
+            <dt>dim</dt>
+            <dd id="dim">384</dd>
+          </div>
+          <div class="readout-item">
+            <dt>source</dt>
+            <dd id="mode">MOCK</dd>
+          </div>
+          <div class="readout-item">
+            <dt>n</dt>
+            <dd id="count">0</dd>
+          </div>
+        </dl>
+      </header>
+
+      <!-- Left rail: captured sentences -->
+      <aside class="rail" aria-label="Captured sentences">
+        <div class="rail-head">
+          <h2 class="rail-title">Captured</h2>
+          <p class="rail-hint">Tap any sentence to make it the axis</p>
+        </div>
+        <div id="sentence-list" class="rail-list" role="list"></div>
+      </aside>
+
+      <!-- Main: the plate + input -->
+      <main class="stage">
+        <div id="axis-readout" class="axis-readout">
+          <span class="ar-label">AXIS</span><span class="ar-empty">none yet</span>
+        </div>
+
+        <figure class="plate">
+          <svg id="plot" class="plot"></svg>
+          <figcaption class="legend">
+            <span class="legend-item"><i class="swatch swatch-axis"></i>axis sentence</span>
+            <span class="legend-item"><i class="swatch swatch-point"></i>plotted sentence</span>
+          </figcaption>
+        </figure>
+
+        <form id="capture-form" class="capture" autocomplete="off">
+          <input
+            id="sentence-input"
+            class="capture-input"
+            type="text"
+            placeholder="Type a sentence and press Enter"
+            aria-label="Sentence to plot"
+          />
+          <button id="submit-btn" class="capture-btn" type="submit">Plot</button>
+        </form>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </main>
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
