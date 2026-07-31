@@ -5,7 +5,7 @@ export const CONFIG = {
   // Your deployed embedding endpoint (AWS Lambda Function URL or API Gateway).
   // The app POSTs { "text": "..." } and expects { "embedding": [ ...384 floats... ] }.
   // See lambda/handler.py for a reference implementation and the exact contract.
-  EMBEDDING_ENDPOINT: " https://ys0bff16kh.execute-api.eu-central-1.amazonaws.com/",
+  EMBEDDING_ENDPOINT: " https://ys0bff16kh.execute-api.eu-central-1.amazonaws.com/embed-endpoint",
 
   // While true, embeddings are generated locally so the whole UI runs with no backend.
   // The mock is deterministic (same sentence -> same vector) and unit-length, so the
