@@ -44,14 +44,16 @@ export async function getEmbedding(sentence) {
   }
 
   const data = await res.json();
-  const emb = data.embedding;
-  if (!Array.isArray(emb) || emb.length === 0) {
-    throw new Error("Response had no 'embedding' array");
+  let emb = data.embedding;
+  // Some servers return a batch, i.e. shape (1, 384) -> [[...]]. Flatten to a vector.
+  if (Array.isArray(emb) && emb.length === 1 && Array.isArray(emb[0])) {
+    emb = emb[0];
+  }
+  if (!Array.isArray(emb) || emb.length === 0 || typeof emb[0] !== "number") {
+    throw new Error("Response 'embedding' was not a flat numeric array");
   }
   if (emb.length !== CONFIG.EMBEDDING_DIM) {
-    console.warn(
-      `Expected ${CONFIG.EMBEDDING_DIM} dims, got ${emb.length}. Continuing anyway.`
-    );
+    console.warn(`Expected ${CONFIG.EMBEDDING_DIM} dims, got ${emb.length}.`);
   }
   return emb;
 }
