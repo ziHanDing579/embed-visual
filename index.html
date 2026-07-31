@@ -6,7 +6,7 @@
     <title>Semantic Axes — a sentence plotting instrument</title>
     <meta
       name="description"
-      content="Plot sentences by their embedding geometry against a chosen semantic axis and its orthogonal complement."
+      content="Plot sentences by their embedding similarity to two sentences you choose as the X and Y axes."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -45,7 +45,7 @@
       <aside class="rail" aria-label="Captured sentences">
         <div class="rail-head">
           <h2 class="rail-title">Captured</h2>
-          <p class="rail-hint">Tap any sentence to make it the axis</p>
+          <p class="rail-hint">Assign one sentence to X and one to Y</p>
         </div>
         <div id="sentence-list" class="rail-list" role="list"></div>
       </aside>
@@ -53,13 +53,21 @@
       <!-- Main: the plate + input -->
       <main class="stage">
         <div id="axis-readout" class="axis-readout">
-          <span class="ar-label">AXIS</span><span class="ar-empty">none yet</span>
+          <span class="ar-pair">
+            <span class="ar-badge ar-x">X</span>
+            <span class="ar-text unset" id="x-text">choose a sentence</span>
+          </span>
+          <span class="ar-pair">
+            <span class="ar-badge ar-y">Y</span>
+            <span class="ar-text unset" id="y-text">choose a sentence</span>
+          </span>
         </div>
 
         <figure class="plate">
           <svg id="plot" class="plot"></svg>
           <figcaption class="legend">
-            <span class="legend-item"><i class="swatch swatch-axis"></i>axis sentence</span>
+            <span class="legend-item"><i class="swatch swatch-x"></i>X axis</span>
+            <span class="legend-item"><i class="swatch swatch-y"></i>Y axis</span>
             <span class="legend-item"><i class="swatch swatch-point"></i>plotted sentence</span>
           </figcaption>
         </figure>

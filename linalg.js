@@ -37,7 +37,7 @@ export function clamp01(x) {
 
 /**
  * mulberry32 PRNG. Deterministic given a 32-bit seed.
- * Returns a function producing floats in [0, 1).
+ * Returns a function producing floats in [0, 1). Used by the local mock.
  */
 export function mulberry32(seed) {
   let a = seed >>> 0;
@@ -52,7 +52,7 @@ export function mulberry32(seed) {
 
 /**
  * A vector of `dim` samples from a standard normal, using the supplied rng
- * (a function returning floats in [0,1)). Box–Muller transform.
+ * (a function returning floats in [0,1)). Box–Muller transform. Used by the mock.
  */
 export function randomGaussianVector(dim, rng) {
   const out = new Array(dim);
@@ -66,34 +66,4 @@ export function randomGaussianVector(dim, rng) {
     if (i + 1 < dim) out[i + 1] = r * Math.sin(theta);
   }
   return out;
-}
-
-/**
- * Remove the component of `v` that lies along `ref`, then normalize.
- * Result is a unit vector orthogonal to `ref` (Gram–Schmidt, one step).
- */
-export function orthogonalize(v, ref) {
-  const refUnit = normalize(ref);
-  const proj = dot(v, refUnit);
-  const out = v.map((val, i) => val - proj * refUnit[i]);
-  return normalize(out);
-}
-
-/**
- * Build a unit vector orthogonal to `ref`.
- * Uses a seeded Gaussian so the result is reproducible for a given ref+seed.
- * Retries with a nudged seed in the astronomically-unlikely event the random
- * draw is nearly parallel to `ref` (degenerate result after projection).
- */
-export function makeOrthogonalTo(ref, seed, dim) {
-  for (let attempt = 0; attempt < 8; attempt++) {
-    const rng = mulberry32((seed + attempt * 0x9e3779b9) >>> 0);
-    const v = randomGaussianVector(dim, rng);
-    const o = orthogonalize(v, ref);
-    if (norm(o) > 1e-6) return o;
-  }
-  // Fallback: a canonical basis direction, orthogonalized.
-  const e = new Array(dim).fill(0);
-  e[0] = 1;
-  return orthogonalize(e, ref);
 }

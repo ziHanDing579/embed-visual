@@ -1,24 +1,22 @@
 // app.js
-// Wires the UI together: capture sentences, embed them, define axes, plot points,
-// and let the user promote any captured sentence to be the new axis.
+// Capture sentences, embed them, and plot each one by its cosine similarity to
+// two sentences you choose: one for the X axis, one for the Y axis.
 
 import { CONFIG } from "./config.js";
 import { getEmbedding } from "./embeddings.js";
-import { normalize, cosineSimilarity, clamp01, makeOrthogonalTo } from "./linalg.js";
+import { cosineSimilarity, clamp01 } from "./linalg.js";
 import { Plot } from "./chart.js";
 
 const state = {
-  sentences: [], // { id, text, embedding: number[] }
-  axisId: null, // id of the sentence acting as the embedding (Y) axis
-  yAxis: null, // unit vector: embedding of the axis sentence
-  xAxis: null, // unit vector: orthogonal to yAxis
-  points: [], // { id, text, x, y, isAxis }
+  sentences: [], // { id, text, embedding }
+  xAxisId: null, // id of the sentence defining the X axis
+  yAxisId: null, // id of the sentence defining the Y axis
+  points: [], // { id, text, x, y, isX, isY }
 };
 
 let seq = 0;
 const nextId = () => `s${++seq}`;
 
-// ---- DOM refs -------------------------------------------------------------
 const els = {
   form: document.getElementById("capture-form"),
   input: document.getElementById("sentence-input"),
@@ -26,7 +24,8 @@ const els = {
   list: document.getElementById("sentence-list"),
   count: document.getElementById("count"),
   mode: document.getElementById("mode"),
-  axisReadout: document.getElementById("axis-readout"),
+  xText: document.getElementById("x-text"),
+  yText: document.getElementById("y-text"),
   status: document.getElementById("status"),
   svg: document.getElementById("plot"),
 };
@@ -34,34 +33,46 @@ const els = {
 const plot = new Plot(els.svg);
 els.mode.textContent = CONFIG.USE_MOCK ? "MOCK" : "LIVE";
 
-// ---- Core logic -----------------------------------------------------------
+const find = (id) => state.sentences.find((s) => s.id === id) || null;
+const embOf = (id) => (find(id) ? find(id).embedding : null);
+const textOf = (id) => (find(id) ? find(id).text : null);
 
-/** Set sentence `id` as the axis: its embedding is Y, a fresh orthogonal vector is X. */
-function setAxis(id) {
-  const s = state.sentences.find((x) => x.id === id);
-  if (!s) return;
-  state.axisId = id;
-  state.yAxis = normalize(s.embedding);
-  state.xAxis = makeOrthogonalTo(state.yAxis, CONFIG.ORTHO_SEED, s.embedding.length);
+// ---- Axis selection -------------------------------------------------------
+
+function setXAxis(id) {
+  state.xAxisId = id;
   recomputeAndRender();
+  setStatus(`X axis set to “${truncate(textOf(id), 40)}”`);
 }
 
-/** Recompute every point's coordinates against the current axes and repaint. */
+function setYAxis(id) {
+  state.yAxisId = id;
+  recomputeAndRender();
+  setStatus(`Y axis set to “${truncate(textOf(id), 40)}”`);
+}
+
+// ---- Projection -----------------------------------------------------------
+
 function recomputeAndRender() {
-  if (!state.xAxis || !state.yAxis) {
-    state.points = [];
-  } else {
-    state.points = state.sentences.map((s) => ({
-      id: s.id,
-      text: s.text,
-      x: clamp01(cosineSimilarity(s.embedding, state.xAxis)),
-      y: clamp01(cosineSimilarity(s.embedding, state.yAxis)),
-      isAxis: s.id === state.axisId,
-    }));
-  }
+  const xVec = embOf(state.xAxisId);
+  const yVec = embOf(state.yAxisId);
+  const ready = Boolean(xVec && yVec);
+
+  state.points = ready
+    ? state.sentences.map((s) => ({
+        id: s.id,
+        text: s.text,
+        x: clamp01(cosineSimilarity(s.embedding, xVec)),
+        y: clamp01(cosineSimilarity(s.embedding, yVec)),
+        isX: s.id === state.xAxisId,
+        isY: s.id === state.yAxisId,
+      }))
+    : [];
+
+  plot.setAxisTitles(textOf(state.xAxisId), textOf(state.yAxisId));
   plot.render(state.points);
   renderList();
-  renderAxisReadout();
+  renderReadout();
 }
 
 async function addSentence(text) {
@@ -71,13 +82,20 @@ async function addSentence(text) {
     const entry = { id: nextId(), text, embedding };
     state.sentences.push(entry);
 
-    // First sentence defines the axes automatically.
-    if (state.axisId === null) {
-      setAxis(entry.id);
+    // Sensible defaults so there's an immediate plot: 1st sentence -> X, 2nd -> Y.
+    // Everything is reassignable from the sidebar afterward.
+    if (state.xAxisId === null) state.xAxisId = entry.id;
+    else if (state.yAxisId === null) state.yAxisId = entry.id;
+
+    recomputeAndRender();
+
+    if (state.xAxisId && state.yAxisId) {
+      setStatus(`Plotted “${truncate(text, 40)}”`);
+    } else if (!state.yAxisId) {
+      setStatus(`Added “${truncate(text, 28)}”. Now choose a Y sentence.`);
     } else {
-      recomputeAndRender();
+      setStatus(`Added “${truncate(text, 28)}”. Now choose an X sentence.`);
     }
-    setStatus(`Plotted “${truncate(text, 40)}”`);
   } catch (err) {
     console.error(err);
     setStatus(
@@ -91,28 +109,19 @@ async function addSentence(text) {
   }
 }
 
-// ---- Rendering: sidebar + readouts ----------------------------------------
+// ---- Sidebar + readout ----------------------------------------------------
 
 function renderList() {
   els.count.textContent = String(state.sentences.length);
   els.list.replaceChildren();
 
   for (const s of state.sentences) {
-    const isAxis = s.id === state.axisId;
     const p = state.points.find((pt) => pt.id === s.id);
+    const isX = s.id === state.xAxisId;
+    const isY = s.id === state.yAxisId;
 
-    const row = document.createElement("button");
-    row.type = "button";
-    row.className = "row" + (isAxis ? " row-axis" : "");
-    row.setAttribute("aria-pressed", String(isAxis));
-    row.title = isAxis ? "Current axis" : "Set as axis";
-    row.addEventListener("click", () => {
-      if (!isAxis) setAxis(s.id);
-    });
-
-    const tag = document.createElement("span");
-    tag.className = "row-tag";
-    tag.textContent = isAxis ? "AXIS" : "SET";
+    const row = document.createElement("div");
+    row.className = "row" + (isX ? " is-x" : "") + (isY ? " is-y" : "");
 
     const txt = document.createElement("span");
     txt.className = "row-text";
@@ -122,22 +131,38 @@ function renderList() {
     coord.className = "row-coord";
     coord.textContent = p ? `${p.x.toFixed(2)}, ${p.y.toFixed(2)}` : "";
 
-    row.append(tag, txt, coord);
+    const actions = document.createElement("div");
+    actions.className = "row-actions";
+
+    const bx = document.createElement("button");
+    bx.type = "button";
+    bx.className = "ax-btn ax-x" + (isX ? " active" : "");
+    bx.textContent = "X";
+    bx.title = "Use as X axis";
+    bx.setAttribute("aria-pressed", String(isX));
+    bx.addEventListener("click", () => setXAxis(s.id));
+
+    const by = document.createElement("button");
+    by.type = "button";
+    by.className = "ax-btn ax-y" + (isY ? " active" : "");
+    by.textContent = "Y";
+    by.title = "Use as Y axis";
+    by.setAttribute("aria-pressed", String(isY));
+    by.addEventListener("click", () => setYAxis(s.id));
+
+    actions.append(bx, by);
+    row.append(txt, coord, actions);
     els.list.appendChild(row);
   }
 }
 
-function renderAxisReadout() {
-  const s = state.sentences.find((x) => x.id === state.axisId);
-  if (!s) {
-    els.axisReadout.innerHTML = `<span class="ar-label">AXIS</span><span class="ar-empty">none yet</span>`;
-    return;
-  }
-  els.axisReadout.innerHTML = `<span class="ar-label">AXIS</span>`;
-  const q = document.createElement("span");
-  q.className = "ar-text";
-  q.textContent = s.text;
-  els.axisReadout.appendChild(q);
+function renderReadout() {
+  const x = textOf(state.xAxisId);
+  const y = textOf(state.yAxisId);
+  els.xText.textContent = x || "choose a sentence";
+  els.yText.textContent = y || "choose a sentence";
+  els.xText.classList.toggle("unset", !x);
+  els.yText.classList.toggle("unset", !y);
 }
 
 // ---- UI plumbing ----------------------------------------------------------
@@ -155,6 +180,7 @@ function setStatus(msg, isError = false) {
 }
 
 function truncate(str, n) {
+  if (!str) return "";
   return str.length > n ? str.slice(0, n - 1) + "…" : str;
 }
 
@@ -171,5 +197,5 @@ recomputeAndRender();
 setStatus(
   CONFIG.USE_MOCK
     ? "Running on the local mock. Set USE_MOCK to false in config.js for real embeddings."
-    : "Ready."
+    : "Add sentences, then assign one to X and one to Y."
 );

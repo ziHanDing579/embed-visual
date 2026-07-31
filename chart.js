@@ -1,7 +1,7 @@
 // chart.js
 // A dependency-free SVG scatter plot confined to the first quadrant [0,1] x [0,1].
-// X = similarity to the orthogonal axis, Y = similarity to the embedding axis.
-// Points are keyed by id so that changing the axis animates them to new positions.
+// X = cosine similarity to the X-axis sentence, Y = cosine similarity to the
+// Y-axis sentence. Points are keyed by id so that changing an axis animates them.
 
 const NS = "http://www.w3.org/2000/svg";
 const TICKS = [0, 0.25, 0.5, 0.75, 1];
@@ -12,12 +12,16 @@ function el(name, attrs = {}) {
   return node;
 }
 
+function truncate(s, n) {
+  return s && s.length > n ? s.slice(0, n - 1) + "…" : s;
+}
+
 export class Plot {
   constructor(svg) {
     this.svg = svg;
     this.W = 760;
     this.H = 560;
-    this.pad = { t: 28, r: 28, b: 58, l: 62 };
+    this.pad = { t: 28, r: 28, b: 66, l: 70 };
     this.nodes = new Map(); // id -> <g> for a point
 
     this.svg.setAttribute("viewBox", `0 0 ${this.W} ${this.H}`);
@@ -48,7 +52,6 @@ export class Plot {
     const x1 = this.px(1);
     const y1 = this.py(1);
 
-    // Recessed plate.
     this.svg.appendChild(
       el("rect", {
         x: pad.l,
@@ -60,12 +63,11 @@ export class Plot {
       })
     );
 
-    // Grid + tick labels.
     const grid = el("g", { class: "grid" });
     for (const t of TICKS) {
       const gx = this.px(t);
       const gy = this.py(t);
-      grid.appendChild(el("line", { x1: gx, y1, x2: gx, y2: y1, class: "gridline" }));
+      grid.appendChild(el("line", { x1: gx, y1: y0, x2: gx, y2: y1, class: "gridline" }));
       grid.appendChild(el("line", { x1: x0, y1: gy, x2: x1, y2: gy, class: "gridline" }));
 
       const tx = el("text", { x: gx, y: y0 + 20, class: "tick" });
@@ -80,41 +82,42 @@ export class Plot {
     }
     this.svg.appendChild(grid);
 
-    // Axes (the L in the corner).
-    this.svg.appendChild(el("line", { x1: x0, y1: y0, x2: x1, y2: y0, class: "axis" }));
-    this.svg.appendChild(el("line", { x1: x0, y1: y0, x2: x0, y2: y1, class: "axis" }));
+    // Axes (the L in the corner), tinted to match each axis colour.
+    this.svg.appendChild(el("line", { x1: x0, y1: y0, x2: x1, y2: y0, class: "axis axis-x-line" }));
+    this.svg.appendChild(el("line", { x1: x0, y1: y0, x2: x0, y2: y1, class: "axis axis-y-line" }));
 
-    // Axis titles.
-    const xt = el("text", { x: (x0 + x1) / 2, y: this.H - 16, class: "axis-title" });
-    xt.textContent = "similarity  →  orthogonal axis";
-    this.svg.appendChild(xt);
+    // Axis titles show the chosen sentence (truncated).
+    this.xTitle = el("text", { x: (x0 + x1) / 2, y: this.H - 14, class: "axis-title axis-title-x" });
+    this.svg.appendChild(this.xTitle);
 
-    const yt = el("text", {
-      x: 18,
-      y: (y0 + y1) / 2,
-      class: "axis-title",
-      transform: `rotate(-90 18 ${(y0 + y1) / 2})`,
+    const ymid = (y0 + y1) / 2;
+    this.yTitle = el("text", {
+      x: 20,
+      y: ymid,
+      class: "axis-title axis-title-y",
+      transform: `rotate(-90 20 ${ymid})`,
     });
-    yt.textContent = "similarity  →  embedding axis";
-    this.svg.appendChild(yt);
+    this.svg.appendChild(this.yTitle);
 
-    // Layer that holds the data points (drawn on top).
+    this.setAxisTitles(null, null);
+
     this.pointsLayer = el("g", { class: "points" });
     this.svg.appendChild(this.pointsLayer);
 
-    // Empty-state prompt.
-    this.empty = el("text", {
-      x: this.px(0.5),
-      y: this.py(0.5),
-      class: "empty-note",
-    });
-    this.empty.textContent = "Plot a sentence to define the first axis";
+    this.empty = el("text", { x: this.px(0.5), y: this.py(0.5), class: "empty-note" });
+    this.empty.textContent = "Assign one sentence to X and one to Y";
     this.svg.appendChild(this.empty);
+  }
+
+  /** Update the axis titles with the chosen sentences (or a placeholder). */
+  setAxisTitles(xText, yText) {
+    this.xTitle.textContent = xText ? `X · “${truncate(xText, 42)}”` : "X · choose a sentence";
+    this.yTitle.textContent = yText ? `Y · “${truncate(yText, 42)}”` : "Y · choose a sentence";
   }
 
   /**
    * Render the given points.
-   * @param {{id:string,text:string,x:number,y:number,isAxis:boolean}[]} points
+   * @param {{id:string,text:string,x:number,y:number,isX:boolean,isY:boolean}[]} points
    */
   render(points) {
     this.empty.style.display = points.length ? "none" : "";
@@ -126,27 +129,21 @@ export class Plot {
       let g = this.nodes.get(p.id);
       if (!g) {
         g = el("g", { class: "pt", tabindex: "0" });
-        const halo = el("circle", { r: 12, class: "pt-halo" });
-        const dot = el("circle", { r: 5.5, class: "pt-dot" });
-        const title = el("title");
-        g.appendChild(halo);
-        g.appendChild(dot);
-        g.appendChild(title);
+        g.appendChild(el("circle", { r: 12, class: "pt-halo" }));
+        g.appendChild(el("circle", { r: 5.5, class: "pt-dot" }));
+        g.appendChild(el("title"));
         this.pointsLayer.appendChild(g);
         this.nodes.set(p.id, g);
       }
 
       g.setAttribute("transform", `translate(${this.px(p.x)} ${this.py(p.y)})`);
-      g.classList.toggle("is-axis", p.isAxis);
+      g.classList.toggle("is-x", !!p.isX);
+      g.classList.toggle("is-y", !!p.isY);
       g.querySelector("title").textContent =
         `${p.text}\n( x ${p.x.toFixed(3)},  y ${p.y.toFixed(3)} )`;
-      g.setAttribute(
-        "aria-label",
-        `${p.text}. orthogonal ${p.x.toFixed(2)}, embedding ${p.y.toFixed(2)}`
-      );
+      g.setAttribute("aria-label", `${p.text}. x ${p.x.toFixed(2)}, y ${p.y.toFixed(2)}`);
     }
 
-    // Remove points no longer present.
     for (const [id, g] of this.nodes) {
       if (!seen.has(id)) {
         g.remove();
