@@ -1,5 +1,5 @@
 ## Frontend for Embedding Visualizer
-The embedding visualizer is a small tool to visualize semantic similarity of sentences or words to each other, using cosine similarity. For more details, see the [container](https://github.com/ziHanDing579/embedDocker) and the [terraform IaC](https://github.com/ziHanDing579/embedLambda). The live site is at [zihanding579.github.io/embed-visual](https://zihanding579.github.io/embed-visual/).
+The embedding visualizer is a small tool to visualize semantic similarity of sentences or words to each other, using cosine similarity. For more details, see the [container](https://github.com/ziHanDing579/embedDocker) and the [terraform IaC](https://github.com/ziHanDing579/embedLambda). The live site is at [zihanding579.github.io/embed-visual](https://zihanding579.github.io/embed-visual/). You can see the Grafana dashboard [here](https://robustgodwit1873.grafana.net/public-dashboards/ab15358d87b1444896a161c0a517ed65).
 
 This repo contains the front end.
 
